@@ -1,4 +1,4 @@
-from math import exp
+from math import exp, pi, log
 import numpy as np
 import pandas as pd
 from CoolProp.CoolProp import PropsSI
@@ -66,46 +66,80 @@ Calculation of intermediate values
 """
 
 
-class Pipe:
-    def __init__(self, t_in, l, kA):
+class ThermodynamicProperties:
+    def __init__(self, fluid='IF97::Water', p=101325 ):
+        def get_cp(t):
+            return PropsSI('C', 'T', t, 'P', p, fluid)
+
+        def get_rho(t):
+            return PropsSI('D', 'T', t, 'P', p, fluid)
+
+
+class Pipe(ThermodynamicProperties):
+    def __init__(self, t_in, t_amb, r1, r2, r3, h1, h2, k1, k2):
+        """
+        This class calculates the output temperature of the pipe.
+
+        :param t_in: inlet temperature [K]
+        :param t_amb: ambient temperature [K]
+        :param r1: inner radius of the pipe [m]
+        :param r2: outer radius of the pipe [m]
+        :param r3: outer radius of the insulated pipe [m]
+        :param h1: heat transfer coefficient between the fluid and the inner surface of the pipe [W/m2K]
+        :param h2: heat transfer coefficient between the outer surface of the insulated pipe and ambient [W/m2K]
+        :param k1: thermal conductivity of the pipe material [W/mK]
+        :param k2: thermal conductivity of the insulation material [W/mK]
+        """
+        super().__init__(fluid, p)
         self.t_in = t_in
-#        self.dt = dt
-#        if self.dt is None:
-#            self.dt = self.t_in - self.t_out
-#        elif self.t_out is None:
-#            self.t_out = self.t_in - self.dt
-#        else:
-#            print('Input "None" in case a value is unknown')
         self.t_amb = t_amb
-        self.h1 = h1
-        self.h2 = h2
         self.r1 = r1
         self.r2 = r2
         self.r3 = r3
+        self.h1 = h1
+        self.h2 = h2
+        self.k1 = k1
+        self.k2 = k2
         
-        self.A1 = 2 * math.pi * self.r1 * self.L
-        self.A3 = 2 * math.pi * self.r3 * self.L
+        self.A1 = 2 * pi * self.r1 * self.L
+        self.A3 = 2 * pi * self.r3 * self.L
         
         self.Ri = 1 / (self.h1 * self.A1)
-        self.R1 = math.log(self.r2 / self.r1) / (2 * math.pi * self.k1 * self.L)
-        self.R2 = math.log(self.r3 / self.r2) / (2 * math.pi * self.k2 * self.L)
+        self.R1 = log(self.r2 / self.r1) / (2 * pi * self.k1 * self.L)
+        self.R2 = log(self.r3 / self.r2) / (2 * pi * self.k2 * self.L)
         self.Ro = 1 / (self.h2 * self.A3)
-        self.R_tot = sum(self.Ri, self.R1, self.R2, self.Ro)
+        self.R_tot = np.sum(self.Ri, self.R1, self.R2, self.Ro)
 
+        self.t_out = self.t_in
         for dL in np.linspace(0, self.L, 10):
-            self.Q_loss = (self.t_in - self.t_amb) / self.R_tot
-            self.t_out = self.t_in - self.Q_loss * dL /
+            self.Q_loss = (self.t_out - self.t_amb) / self.R_tot
+            self.t_out = self.t_in - self.Q_loss * dL / (get_cp(self.t_out) * get_rho(self.t_out) * self.A1 * dL)
 
 
+class Node(ThermodynamicProperties):
 
-class Node:
     def __init__(self, tc_in_meas, tc_out_meas, dvc_in, th_in_meas, th_out_meas, dvh_in, p=101325, fluid='IF97::Water'):
+        """
+        This class calculates the heat transfer via measured values.
+
+        :param tc_in_meas: Measured temperature at the colder circuit inlet [K]
+        :param tc_out_meas: Measured outlet temperature at colder circuit
+        :param dvc_in:
+        :param th_in_meas:
+        :param th_out_meas:
+        :param dvh_in:
+        :param p:
+        :param fluid:
+        """
+        super().__init__(tc_in_meas)
         self.tc_in_meas = tc_in_meas
         self.tc_out_meas = tc_out_meas
         self.dtc_meas = self.tc_out_meas - self.tc_in_meas
         self.dVc_in = dvc_in
-        self.cpc_in = PropsSI('C', 'T', self.tc_in_meas, 'P', p, fluid)
-        self.rhoc_in = PropsSI('D', 'T', self.tc_in_meas, 'P', p, fluid)
+#        self.cpc_in = PropsSI('C', 'T', self.tc_in_meas, 'P', p, fluid)
+#        self.rhoc_in = PropsSI('D', 'T', self.tc_in_meas, 'P', p, fluid)
+        self.cpc_in = get_cp(self.tc_in_meas)
+        self.rhoc_in = get_rho(self.tc_in_meas)
         self.dmc_in = self.rhoc_in * self.dVc_in
         self.Qc_meas = round(self.dmc_in * self.cpc_in * self.dtc_meas)
 
@@ -113,8 +147,10 @@ class Node:
         self.th_out_meas = th_out_meas
         self.dth_meas = self.th_in_meas - self.th_out_meas
         self.dVh_in = dvh_in
-        self.cph_in = PropsSI('C', 'T', self.th_in_meas, 'P', p, fluid)
-        self.rhoh_in = PropsSI('D', 'T', self.th_in_meas, 'P', p, fluid)
+#        self.cph_in = PropsSI('C', 'T', self.th_in_meas, 'P', p, fluid)
+#        self.rhoh_in = PropsSI('D', 'T', self.th_in_meas, 'P', p, fluid)
+        self.cph_in = get_cp(self.th_in_meas)
+        self.rhoh_in = get_rho(self.th_in_meas)
         self.dmh_in = self.rhoh_in * self.dVh_in
         self.Qh_meas = round(self.dmh_in * self.cph_in * self.dth_meas)
 
@@ -125,7 +161,16 @@ epsilon-NTU
 
 
 class EpsNtu(Node):
-    def __init__(self, ua, tc_in_meas, tc_out_meas, dvc_in, th_in_meas, th_out_meas, dvh_in):
+    def __init__(self, ua, tc_in_meas, dvc_in, th_in_meas, dvh_in):
+        """
+        This class calculates heat transfer and the output temperatures via epsilon-NTU method.
+
+        :param ua:
+        :param tc_in_meas:
+        :param dvc_in:
+        :param th_in_meas:
+        :param dvh_in:
+        """
         super().__init__(tc_in_meas, tc_out_meas, dvc_in, th_in_meas, th_out_meas, dvh_in)
         self.UA = ua
         self.dt_in = self.th_in_meas - self.tc_in_meas
