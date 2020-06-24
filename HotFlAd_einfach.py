@@ -67,16 +67,35 @@ Calculation of intermediate values
 
 
 class Pipe:
-    def __init__(self, t_in, t_out, dt):
+    def __init__(self, t_in, l, kA):
         self.t_in = t_in
-        self.t_out = t_out
-        self.dt = dt
-        if self.dt is None:
-            self.dt = self.t_in - self.t_out
-        elif self.t_out is None:
-            self.t_out = self.t_in - self.dt
-        else:
-            print('Input "None" in case a value is unknown')
+#        self.dt = dt
+#        if self.dt is None:
+#            self.dt = self.t_in - self.t_out
+#        elif self.t_out is None:
+#            self.t_out = self.t_in - self.dt
+#        else:
+#            print('Input "None" in case a value is unknown')
+        self.t_amb = t_amb
+        self.h1 = h1
+        self.h2 = h2
+        self.r1 = r1
+        self.r2 = r2
+        self.r3 = r3
+        
+        self.A1 = 2 * math.pi * self.r1 * self.L
+        self.A3 = 2 * math.pi * self.r3 * self.L
+        
+        self.Ri = 1 / (self.h1 * self.A1)
+        self.R1 = math.log(self.r2 / self.r1) / (2 * math.pi * self.k1 * self.L)
+        self.R2 = math.log(self.r3 / self.r2) / (2 * math.pi * self.k2 * self.L)
+        self.Ro = 1 / (self.h2 * self.A3)
+        self.R_tot = sum(self.Ri, self.R1, self.R2, self.Ro)
+
+        for dL in np.linspace(0, self.L, 10):
+            self.Q_loss = (self.t_in - self.t_amb) / self.R_tot
+            self.t_out = self.t_in - self.Q_loss * dL /
+
 
 
 class Node:
@@ -147,9 +166,9 @@ Sandbox
 pipe_1_5 = Pipe(bt1, None, 0.5)
 print(pipe_1_5.t_out)
 
-emul_df = TableResults(650, bt11, bt10, V_MID1, bt12, bt13, V_BF2)
+emul_df = TableResults(650, bt11, bt10, V_MID1, bt12, bt13, V_MID2)
 print(emul_df.results_df)
 serv_df = TableResults(3250, t3, t4, V_MID6, t1, t2, V_MID5)
 print(serv_df.results_df)
-recooler_df = TableResults(3500, bt15, bt16, V_BF4, bt13, bt14, V_BF2)
+recooler_df = TableResults(3500, bt15, bt16, V_BF4, bt13, bt14, V_MID2)
 print(recooler_df.results_df)
