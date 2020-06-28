@@ -2,15 +2,27 @@ from math import exp, pi, log
 import numpy as np
 import pandas as pd
 from CoolProp.CoolProp import PropsSI
+import requests
+from os.path import join
+
+'''
+Importing measurement data
+'''
+data_folder = '/Users/nasir/tubCloud/Shared/HotFlAd/03_Messdaten/Monitoring/data/8h'
+temp_path = join(data_folder, 'arrTemps.txt')
+MID_path = join(data_folder, 'arrMID.txt')
+header_temp = ['bt'+str(i) for i in range(1, 20)]
+header_MID = ['mid'+str(i) for i in range(1, 7)]
+temp_data = pd.read_csv(temp_path, sep='\t', header=0, names=header_temp)
+MID_data = pd.read_csv(MID_path, sep='\t', header=0, names=header_MID)
+print(MID_data.head())
+
 
 """
-Initiation of the temperature sensors
-"""
+Initialization of the temperature sensors
 
-
-t1 = 333.15  # [K] Temperature at the server HX inlet (pump box circuit)
-t2 = 332.15  # [K] Temperature at the server HX outlet (pump box circuit)
-
+#t1 = 333.15  # [K] Temperature at the server HX inlet (pump box circuit)
+#t2 = 332.15  # [K] Temperature at the server HX outlet (pump box circuit)
 
 bt1 = 323.15  # [K] T at HT outlet (AdKM)
 dt_1_5_meas = -0.5
@@ -45,11 +57,10 @@ bt0 = 291.15  # [K] T at LT inlet (AdKM)
 bt9 = 288.15  # [K] T at LT outlet (AdKM)
 bt11 = 288.65  # [K] T at LT inlet to KAE
 bt10 = 290.65  # [K] T at LT outlet from KAE
+"""
 
 """
 Initiation of the volume flow rate sensors
-"""
-
 
 V_MID6 = 0.000167  # [m^3/s] Volume flow rate in the server circuit (10 l/min)
 V_MID5 = 0.000167  # [m^3/s] Volume flow rate in the server secondary circuit (10 l/min)
@@ -59,24 +70,33 @@ V_MID3 = 0.000833  # [m^3/s] Volume flow rate in the server simulation circuit (
 # V_BF4 = 0.000833  # [m^3/s] Volume flow rate of the re-cooling water (50 l/min)
 V_MID2 = 0.001  # [m^3/s] Volume flow rate in the re-cooling circuit (60 l/min)
 V_MID1 = 0.000833  # [m^3/s] Volume flow rate in the cold water circuit (50 l/min)
-
-
-"""
-Calculation of intermediate values
 """
 
 
-class ThermodynamicProperties:
-    def __init__(self, fluid='IF97::Water', p=101325 ):
-        def get_cp(t):
-            return PropsSI('C', 'T', t, 'P', p, fluid)
-
-        def get_rho(t):
-            return PropsSI('D', 'T', t, 'P', p, fluid)
+dict_pipe_sizes = {25: {'ri': 0.0136, 'ro': 0.01685},  # DIN EN 10255
+                   32: {'ri': 0.01795, 'ro': 0.0212},
+                   40: {'ri': 0.0209, 'ro': 0.02415}}
 
 
+'''class ThermodynamicProperties:
+    def __init__(self, t, fluid='IF97::Water', p=101325):
+        """
+        This class calculates the cp and rho of the fluid from its temperature.
+
+        :param fluid: which fluid
+        :param p: pressure of the fluid [Pa]
+        """
+        self.t = t
+        def get_cp(self, t):
+            return PropsSI('C', 'T', self.t, 'P', p, fluid)
+
+        def get_rho(self, t):
+            return PropsSI('D', 'T', self.t, 'P', p, fluid)
+'''
+
+'''
 class Pipe(ThermodynamicProperties):
-    def __init__(self, t_in, t_amb, r1, r2, r3, h1, h2, k1, k2):
+    def __init__(self, t_in, dn, r3, material, t_amb=295.15):
         """
         This class calculates the output temperature of the pipe.
 
@@ -93,11 +113,10 @@ class Pipe(ThermodynamicProperties):
         super().__init__(fluid, p)
         self.t_in = t_in
         self.t_amb = t_amb
-        self.r1 = r1
-        self.r2 = r2
-        self.r3 = r3
-        self.h1 = h1
-        self.h2 = h2
+        self.dn = dn
+        self.r1 = dict_pipe_sizes[dn]['ri']
+        self.r2 = dict_pipe_sizes[dn]['ro']
+        self.r3 = self.r2 + 0.009
         self.k1 = k1
         self.k2 = k2
         
@@ -114,10 +133,10 @@ class Pipe(ThermodynamicProperties):
         for dL in np.linspace(0, self.L, 10):
             self.Q_loss = (self.t_out - self.t_amb) / self.R_tot
             self.t_out = self.t_in - self.Q_loss * dL / (get_cp(self.t_out) * get_rho(self.t_out) * self.A1 * dL)
+'''
 
 
-class Node(ThermodynamicProperties):
-
+class Node:
     def __init__(self, tc_in_meas, tc_out_meas, dvc_in, th_in_meas, th_out_meas, dvh_in, p=101325, fluid='IF97::Water'):
         """
         This class calculates the heat transfer via measured values.
@@ -131,15 +150,12 @@ class Node(ThermodynamicProperties):
         :param p:
         :param fluid:
         """
-        super().__init__(tc_in_meas)
         self.tc_in_meas = tc_in_meas
         self.tc_out_meas = tc_out_meas
         self.dtc_meas = self.tc_out_meas - self.tc_in_meas
         self.dVc_in = dvc_in
-#        self.cpc_in = PropsSI('C', 'T', self.tc_in_meas, 'P', p, fluid)
-#        self.rhoc_in = PropsSI('D', 'T', self.tc_in_meas, 'P', p, fluid)
-        self.cpc_in = get_cp(self.tc_in_meas)
-        self.rhoc_in = get_rho(self.tc_in_meas)
+        self.cpc_in = PropsSI('C', 'T', self.tc_in_meas, 'P', p, fluid)
+        self.rhoc_in = PropsSI('D', 'T', self.tc_in_meas, 'P', p, fluid)
         self.dmc_in = self.rhoc_in * self.dVc_in
         self.Qc_meas = round(self.dmc_in * self.cpc_in * self.dtc_meas)
 
@@ -147,31 +163,26 @@ class Node(ThermodynamicProperties):
         self.th_out_meas = th_out_meas
         self.dth_meas = self.th_in_meas - self.th_out_meas
         self.dVh_in = dvh_in
-#        self.cph_in = PropsSI('C', 'T', self.th_in_meas, 'P', p, fluid)
-#        self.rhoh_in = PropsSI('D', 'T', self.th_in_meas, 'P', p, fluid)
-        self.cph_in = get_cp(self.th_in_meas)
-        self.rhoh_in = get_rho(self.th_in_meas)
+        self.cph_in = PropsSI('C', 'T', self.th_in_meas, 'P', p, fluid)
+        self.rhoh_in = PropsSI('D', 'T', self.th_in_meas, 'P', p, fluid)
         self.dmh_in = self.rhoh_in * self.dVh_in
         self.Qh_meas = round(self.dmh_in * self.cph_in * self.dth_meas)
 
 
-"""
-epsilon-NTU
-"""
-
-
 class EpsNtu(Node):
-    def __init__(self, ua, tc_in_meas, dvc_in, th_in_meas, dvh_in):
+    def __init__(self, ua, tc_in_meas, tc_out_meas, dvc_in, cpc_in, th_in_meas, th_out_meas, dvh_in, cph_in):
         """
         This class calculates heat transfer and the output temperatures via epsilon-NTU method.
 
-        :param ua:
-        :param tc_in_meas:
+        :param ua: UA value of the heat exchanger [W/K]
+        :param tc_in_meas: Measured temperature at the colder circuit inlet [T]
+        :param tc_out_meas:
         :param dvc_in:
         :param th_in_meas:
+        :param th_out_meas:
         :param dvh_in:
         """
-        super().__init__(tc_in_meas, tc_out_meas, dvc_in, th_in_meas, th_out_meas, dvh_in)
+        super().__init__(tc_in_meas, tc_out_meas, dvc_in, th_in_meas, th_out_meas, dvh_in, cpc_in, cph_in)
         self.UA = ua
         self.dt_in = self.th_in_meas - self.tc_in_meas
         self.Cc = self.cpc_in * self.dmc_in
@@ -189,6 +200,17 @@ class EpsNtu(Node):
 
 class TableResults(EpsNtu):
     def __init__(self, ua, tc_in_meas, tc_out_meas, dvc_in, th_in_meas, th_out_meas, dvh_in):
+        """
+        This class creates a dictionary and subsequently a pandas data frame with results.
+
+        :param ua:
+        :param tc_in_meas:
+        :param tc_out_meas:
+        :param dvc_in:
+        :param th_in_meas:
+        :param th_out_meas:
+        :param dvh_in:
+        """
         super().__init__(ua, tc_in_meas, tc_out_meas, dvc_in, th_in_meas, th_out_meas, dvh_in)
         self.results_dict = {'T inlet': [self.tc_in_meas, self.th_in_meas],
                              'T outlet': [self.tc_out_meas, self.th_out_meas],
@@ -208,12 +230,9 @@ class TableResults(EpsNtu):
 """
 Sandbox
 """
-pipe_1_5 = Pipe(bt1, None, 0.5)
-print(pipe_1_5.t_out)
-
-emul_df = TableResults(650, bt11, bt10, V_MID1, bt12, bt13, V_MID2)
+emul_df = TableResults(650, temp_data.bt11, temp_data.bt10, MID_data.mid1, temp_data.bt12, temp_data.bt13, MID_data.mid2)
 print(emul_df.results_df)
-serv_df = TableResults(3250, t3, t4, V_MID6, t1, t2, V_MID5)
-print(serv_df.results_df)
-recooler_df = TableResults(3500, bt15, bt16, V_BF4, bt13, bt14, V_MID2)
-print(recooler_df.results_df)
+#serv_df = TableResults(3250, t3, t4, mid6, t1, t2, mid5)
+#print(serv_df.results_df)
+#recooler_df = TableResults(3500, bt15, bt16, V_BF4, bt13, bt14, mid2)
+#print(recooler_df.results_df)
