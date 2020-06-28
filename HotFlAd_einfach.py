@@ -26,18 +26,38 @@ time_data['Europe/Berlin'] = pd.to_datetime(time_data['# Unix Time'], unit='s').
 q_data = pd.read_csv(q_path, sep='\t', header=0, names=header_q)
 # print(temp_data.isnull().values.any())
 # print(MID_data.isnull().values.any())
-print(q_data.head())
 
 '''
 Plotting the input data
+
+sns.set(style="whitegrid")
+
+fig, ax = plt.subplots()
+x = temp_data['timestamp']
+y1 = temp_data['bt10']
+y2 = temp_data['bt11']
+y3 = temp_data['bt12']
+y4 = temp_data['bt13']
+ax.set_xticklabels(temp_data['timestamp'], rotation=45, ha="right")
+
+ax.plot(x, y1, label='bt10')
+ax.plot(x, y2, label='bt11')
+ax.plot(x, y3, label='bt12')
+ax.plot(x, y4, label='bt13')
+ax.legend(loc='best')
 '''
-f, ax = plt.subplots(figsize=(5, 6))
-sns.set_style("whitegrid")
-g = sns.lmplot(x=time_data['Europe/Berlin'], y=temp_data.bt1, data=temp_data, aspect=2)
-g = (g.set_axis_labels("Time [s]", "Temperature [K]").set(xlim=(0, len(time_data['Europe/Berlin'])), ylim=(0, 100)))
+'''
+temp_data['timestamp'] = time_data['Europe/Berlin']
+#temp_data.set_index('timestamp', inplace=True)
+duration = [*range(1, 26370)]
+print(duration[-1])
+
+for i in range(1, 20, 1):
+    sns.lineplot(x=duration, y=temp_data.iloc[:, i], data=temp_data)
+set_axis_labels("Time [s]", "Temperature [K]").set(xlim=(0, len(time_data['Europe/Berlin'])), ylim=(0, 100))
 plt.title("Temperature profiles")
 plt.show(g)
-
+'''
 
 dict_pipe_sizes = {25: {'ri': 0.0136, 'ro': 0.01685},  # DIN EN 10255
                    32: {'ri': 0.01795, 'ro': 0.0212},
@@ -203,7 +223,7 @@ class TableResults(EpsNtu):
 """
 Sandbox
 """
-sr = 2000  # Sample row number
+sr = 7000  # Sample row number
 emul_df = TableResults(450, temp_data.bt10[sr], temp_data.bt11[sr], mid_data.mid1[sr], temp_data.bt12[sr],
                        temp_data.bt13[sr], mid_data.mid2[sr])
 print(emul_df.results_df)
