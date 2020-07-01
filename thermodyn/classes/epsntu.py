@@ -1,5 +1,5 @@
 from math import exp
-from basic_calc import Node
+from .basic_calc import Node
 
 
 class EpsNtu(Node):

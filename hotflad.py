@@ -5,8 +5,9 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib import rc
 import seaborn as sns
-from functions import get_rmse
-from epsntu import EpsNtu
+from thermodyn.functions import get_rmse, get_air_property_at1bar, get_k, c2k
+from thermodyn.classes.epsntu import EpsNtu
+from thermodyn.classes.pipe_heat_loss import Pipe
 
 '''
 Importing measurement data
@@ -39,7 +40,20 @@ sw_data = pd.read_csv(sw_path, sep='\t', header=0, names=header_sw)
 sp_data = pd.read_csv(sp_path, sep='\t', header=0, names=header_sp)
 p_data = pd.read_csv(p_path, sep='\t', header=0, names=header_p)
 
-print(p_data.head())
+"""
+Test values
+"""
+ua = 456
+sr = 3000  # Sample row number
+obs_w = 3600  # Observation window
+offset = obs_w/2
+
+
+pipe_AK = Pipe(c2k(temp_data.bt5[sr]), 25, 3, 'copper', 'tubolit')
+print(pipe_AK.t_in, pipe_AK.t_out, pipe_AK.Q_loss)
+
+#print(get_air_property_at1bar('pr', 20))
+#print(get_k_tubolit(60))
 
 
 class TableResults(EpsNtu):
@@ -75,8 +89,7 @@ class TableResults(EpsNtu):
 """
 Sandbox
 """
-sr = 3000  # Sample row number
-ua = 456
+
 #emul_df = TableResults(ua, temp_data.bt9[sr], temp_data.bt17[sr], mid_data.mid1[sr],
 # temp_data.bt12[sr], temp_data.bt13[sr], mid_data.mid2[sr])
 #print(emul_df.results_df)
@@ -117,7 +130,33 @@ plt.legend(loc='best')
 
 #plt.savefig(simulation_folder+'/Fluctuation_bt9-17vsbt10-11.png', dpi=600, bbox_inches='tight',
 # facecolor=fig.get_facecolor(), edgecolor='none')
-plt.show()
+#plt.show()
+
+'''
+Plotting the control parameters
+'''
+fig = plt.figure(2)
+ax = fig.gca()
+x = temp_data['timestamp']
+y1 = temp_data['bt4']
+y2 = sw_data['sw4']
+y3 = sp_data['mm1']
+
+plt.plot(x, y1, label='bt4')
+plt.plot(x, y2, label='sw4')
+plt.plot(x, y3, label='mm1')
+
+plt.xlim(0, len(temp_data.bt14))
+plt.xlabel('Time [s]')
+plt.ylabel('Temp [°C]/ Signal [%]')
+plt.title('AK regulation')
+plt.grid('on')
+plt.legend(loc='best')
+plt.xlim(sr-offset, sr+offset)
+
+#plt.savefig(simulation_folder+'/AK_regulation_old', dpi=600, bbox_inches='tight',
+#            facecolor=fig.get_facecolor(), edgecolor='none')
+#plt.show()
 
 '''
 Plotting the heat transfer
@@ -131,9 +170,8 @@ q_data['timestamp'] = np.linspace(1, len(q_data.q1), len(q_data.q1))
 q_data['kk_sim'] = qsim_list
 q_data['kk_calc'] = qcalc_list
 rmse = get_rmse(q_data.kk_sim, q_data.q1)
-print(rmse)
 
-fig = plt.figure(2)
+fig = plt.figure(3)
 #plt.plot(q_data.timestamp, q_data.q1, label='imported', linewidth=0.5)
 plt.plot(q_data.timestamp, q_data.kk_sim, label='eps-ntu', linewidth=0.5)
 plt.plot(q_data.timestamp, q_data.kk_calc, label='calculated', linewidth=0.5)
@@ -143,9 +181,9 @@ plt.xlim(0, len(q_data.q1))
 plt.ylim(1000, 15000)
 plt.xlabel('Time [s]')
 plt.ylabel('Qdot [W]')
-plt.title('Qdot over bt9-17 (UA = {}, RMSE = {})'.format(ua, rmse))
+plt.title(f'Qdot over bt9-17 (UA = {ua}, RMSE = {rmse})')
 plt.grid('on')
 plt.legend(loc='best')
-#fig.savefig(simulation_folder+'/Qdot_bt9-17_ua{}_rmse{}'.format(ua, rmse)+'.png', dpi=600)
-#fig.savefig(simulation_folder+'/Qdot_bt9-17_ua{}_rmse{}_zoomed'.format(ua, rmse)+'.png', dpi=600)
+#fig.savefig(simulation_folder+f'/Qdot_bt9-17_ua{ua}_rmse{rmse}'+'.png', dpi=600)
+#fig.savefig(simulation_folder+f'/Qdot_bt9-17_ua{ua}_rmse{rmse}_zoomed'+'.png', dpi=600)
 #plt.show()
