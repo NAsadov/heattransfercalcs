@@ -14,14 +14,39 @@ Importing measurement data
 '''
 monitoring_folder = '/Users/nasir/tubCloud/Shared/HotFlAd/03_Messdaten/Monitoring'
 simulation_folder = os.path.join(monitoring_folder, 'Simulation')
+temporary_path = os.path.join(monitoring_folder, 'ReglerOptimierungKK', '2nd_testing', 'data_25_50_2')
 data_folder = os.path.join(monitoring_folder, 'data')
 data_8h = os.path.join(data_folder, '8h')
-temp_path = os.path.join(data_8h, 'arrTemps.txt')
+
+import_path = data_8h
+
+import_dict = {'temp_data': ['arrTemps.txt', ['bt' + str(i) for i in range(1, 20)]],  # change to arrBT
+               'mid_data': ['arrMID.txt', ['mid' + str(i) for i in range(1, 7)]],
+               'time_data': ['arrTime.txt', ['unix']],
+               'q_data': ['arrQ.txt', ['q1', 'q2', 'q3', 'q4', 'q5', 'q6']],  # add 'cop'
+               'sw_data': ['arrSW.txt', ['sw4', 'sw14', 'sw17']],
+               'sp_data': ['arrSPs.txt', ['mm1', 'mm2', 'mm3', 'mm4', 'mm5', 'gp10', 'gp11', 'ea21']],
+               'p_data': ['arrPower.txt', ['p10', 'p11', 'p21', 'p1']]
+               }
+print(import_dict.keys())
+
+
+listwithdfs = [pd.read_csv(os.path.join(import_path, value[0]), sep='\t', header=0, names=value[1]) for value in import_dict.values()]
+
+#print(listwithdfs)
+
+temp_data, mid_data, time_data, q_data, sw_data, sp_data, p_data = listwithdfs
+
+
+'''
+#Old import
+
+temp_path = os.path.join(data_8h, 'arrBT.txt')
 mid_path = os.path.join(data_8h, 'arrMID.txt')
 time_path = os.path.join(data_8h, 'arrTime.txt')
 q_path = os.path.join(data_8h, 'arrQ.txt')
 sw_path = os.path.join(data_8h, 'arrSW.txt')
-sp_path = os.path.join(data_8h, 'arrSPs.txt')
+sp_path = os.path.join(data_8h, 'arrPID.txt')
 p_path = os.path.join(data_8h, 'arrPower.txt')
 
 header_temp = ['bt'+str(i) for i in range(1, 20)]
@@ -39,6 +64,7 @@ q_data = pd.read_csv(q_path, sep='\t', header=0, names=header_q)*1000
 sw_data = pd.read_csv(sw_path, sep='\t', header=0, names=header_sw)
 sp_data = pd.read_csv(sp_path, sep='\t', header=0, names=header_sp)
 p_data = pd.read_csv(p_path, sep='\t', header=0, names=header_p)
+'''
 
 """
 Test values
@@ -46,14 +72,14 @@ Test values
 ua = 456
 sr = 3000  # Sample row number
 obs_w = 3600  # Observation window
-offset = obs_w/2
-
+offset = obs_w / 2
 
 pipe_AK = Pipe(c2k(temp_data.bt5[sr]), 25, 3, 'copper', 'tubolit')
 print(pipe_AK.t_in, pipe_AK.t_out, pipe_AK.Q_loss)
 
-#print(get_air_property_at1bar('pr', 20))
-#print(get_k_tubolit(60))
+
+# print(get_air_property_at1bar('pr', 20))
+# print(get_k_tubolit(60))
 
 
 class TableResults(EpsNtu):
@@ -79,7 +105,7 @@ class TableResults(EpsNtu):
                              'Mass fl. r.': [self.dmc_in, self.dmh_in],
                              'Simulation UA value': [self.UA, self.UA],
                              'Measured heat transfer': [self.Qc_calc, self.Qh_calc],
-                             'Imported heat transfer': [q_data.q1[sr]*1000, None],
+                             'Imported heat transfer': [q_data.q1[sr] * 1000, None],
                              'Simulated heat transfer': [self.Q_sim, self.Q_sim]}
         self.columns = list(self.results_dict.keys())
         self.index = ['Cold side', 'Hot side']
@@ -90,21 +116,21 @@ class TableResults(EpsNtu):
 Sandbox
 """
 
-#emul_df = TableResults(ua, temp_data.bt9[sr], temp_data.bt17[sr], mid_data.mid1[sr],
+# emul_df = TableResults(ua, temp_data.bt9[sr], temp_data.bt17[sr], mid_data.mid1[sr],
 # temp_data.bt12[sr], temp_data.bt13[sr], mid_data.mid2[sr])
-#print(emul_df.results_df)
-#serv_df = TableResults(3250, t3, t4, mid6, t1, t2, mid5)
-#print(serv_df.results_df)
-#recooler_df = TableResults(3500, bt15, bt16, V_BF4, bt13, bt14, mid2)
-#print(recooler_df.results_df)
+# print(emul_df.results_df)
+# serv_df = TableResults(3250, t3, t4, mid6, t1, t2, mid5)
+# print(serv_df.results_df)
+# recooler_df = TableResults(3500, bt15, bt16, V_BF4, bt13, bt14, mid2)
+# print(recooler_df.results_df)
 
 
 '''
 Plotting the temperatures
 '''
-#plt.style.use('seaborn-whitegrid')
-#rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-#rc('text', usetex=True)
+# plt.style.use('seaborn-whitegrid')
+# rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+# rc('text', usetex=True)
 
 temp_data['timestamp'] = np.linspace(1, len(temp_data.bt1), len(temp_data.bt1))
 fig = plt.figure(1)
@@ -123,14 +149,14 @@ plt.plot(x, y4, label='bt13')
 plt.xlim(0, len(q_data.q1))
 plt.xlabel('Time [s]')
 plt.ylabel('Temp [°C]')
-#plt.title('KK temperature fluctuation comparison')
+# plt.title('KK temperature fluctuation comparison')
 plt.grid('on')
 plt.legend(loc='best')
-#plt.xlim(sr-600, sr+600)
+# plt.xlim(sr-600, sr+600)
 
-#plt.savefig(simulation_folder+'/Fluctuation_bt9-17vsbt10-11.png', dpi=600, bbox_inches='tight',
+# plt.savefig(simulation_folder+'/Fluctuation_bt9-17vsbt10-11.png', dpi=600, bbox_inches='tight',
 # facecolor=fig.get_facecolor(), edgecolor='none')
-#plt.show()
+# plt.show()
 
 '''
 Plotting the control parameters
@@ -152,19 +178,19 @@ plt.ylabel('Temp [°C]/ Signal [%]')
 plt.title('AK regulation')
 plt.grid('on')
 plt.legend(loc='best')
-plt.xlim(sr-offset, sr+offset)
+plt.xlim(sr - offset, sr + offset)
 
-#plt.savefig(simulation_folder+'/AK_regulation_old', dpi=600, bbox_inches='tight',
+# plt.savefig(simulation_folder+'/AK_regulation_old', dpi=600, bbox_inches='tight',
 #            facecolor=fig.get_facecolor(), edgecolor='none')
-#plt.show()
+plt.show()
 
 '''
 Plotting the heat transfer
 '''
 qsim_list = [round(EpsNtu(ua, temp_data.bt10[i], temp_data.bt11[i], mid_data.mid1[i], temp_data.bt12[i],
-             temp_data.bt13[i], mid_data.mid2[i]).Q_sim) for i in range(0, len(temp_data.bt1))]
+                          temp_data.bt13[i], mid_data.mid2[i]).Q_sim) for i in range(0, len(temp_data.bt1))]
 qcalc_list = [round(EpsNtu(ua, temp_data.bt10[i], temp_data.bt11[i], mid_data.mid1[i], temp_data.bt12[i],
-              temp_data.bt13[i], mid_data.mid2[i]).Qc_calc) for i in range(0, len(temp_data.bt1))]
+                           temp_data.bt13[i], mid_data.mid2[i]).Qc_calc) for i in range(0, len(temp_data.bt1))]
 
 q_data['timestamp'] = np.linspace(1, len(q_data.q1), len(q_data.q1))
 q_data['kk_sim'] = qsim_list
@@ -172,11 +198,11 @@ q_data['kk_calc'] = qcalc_list
 rmse = get_rmse(q_data.kk_sim, q_data.q1)
 
 fig = plt.figure(3)
-#plt.plot(q_data.timestamp, q_data.q1, label='imported', linewidth=0.5)
+# plt.plot(q_data.timestamp, q_data.q1, label='imported', linewidth=0.5)
 plt.plot(q_data.timestamp, q_data.kk_sim, label='eps-ntu', linewidth=0.5)
 plt.plot(q_data.timestamp, q_data.kk_calc, label='calculated', linewidth=0.5)
 
-#plt.xlim(sr-600, sr+600)
+# plt.xlim(sr-600, sr+600)
 plt.xlim(0, len(q_data.q1))
 plt.ylim(1000, 15000)
 plt.xlabel('Time [s]')
@@ -184,6 +210,6 @@ plt.ylabel('Qdot [W]')
 plt.title(f'Qdot over bt9-17 (UA = {ua}, RMSE = {rmse})')
 plt.grid('on')
 plt.legend(loc='best')
-#fig.savefig(simulation_folder+f'/Qdot_bt9-17_ua{ua}_rmse{rmse}'+'.png', dpi=600)
-#fig.savefig(simulation_folder+f'/Qdot_bt9-17_ua{ua}_rmse{rmse}_zoomed'+'.png', dpi=600)
-#plt.show()
+# fig.savefig(simulation_folder+f'/Qdot_bt9-17_ua{ua}_rmse{rmse}'+'.png', dpi=600)
+# fig.savefig(simulation_folder+f'/Qdot_bt9-17_ua{ua}_rmse{rmse}_zoomed'+'.png', dpi=600)
+# plt.show()
